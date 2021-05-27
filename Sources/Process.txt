@@ -1,0 +1,10 @@
+- Understand NLP
+- Install Packages such as tm, openNLP, tydytext and others
+- Learn to use these packages
+- Explore and clean the data
+  -What do the data look like?
+  -Where do the data come from?
+  -Can you think of any other data sources that might help you in this project?
+  -What are the common steps in natural language processing?
+  -What are some common issues in the analysis of text data?
+  -What is the relationship between NLP and the concepts you have learned in the Specialization?

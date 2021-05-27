@@ -1,0 +1,81 @@
+---
+title: "Data Manioulation"
+author: "Alberto Macías"
+date: "5/25/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r, include=FALSE}
+library(dplyr)
+library(tm)
+library(tidytext)
+```
+
+```{r}
+twitter_us <-  paste(getwd(), "final", "en_Us", "en_US.twitter.txt", sep = "/")
+con <- file(twitter_us, "r")
+vcorpus <- readLines(con)
+close(con)
+set.seed(22)
+selection <- sample(1:10000, 1000)
+vcorpus.sample <- vcorpus[selection]
+twitter_corpus <- Corpus(VectorSource(vcorpus),
+                         readerControl=list(readPlain, language="en_US", load=TRUE))
+twitter_corpus <- tm_map(twitter_corpus, content_transformer(tolower))
+```
+
+```{r}
+blogs_us <- paste(getwd(), "final", "en_Us", "en_US.blogs.txt", sep = "/")
+con <- file(blogs_us, "r")
+full_text_blogs <- readLines(con)
+close(con) 
+blogs_corpus <- Corpus(VectorSource(full_text_blogs),
+                   readerControl=list(readPlain, language="en", load=TRUE))
+```
+
+```{r}
+news_us <- paste(getwd(), "final", "en_Us", "en_US.news.txt", sep = "/")
+con <- file(news_us, "r")
+full_text_news <- readLines(con)
+close(con)
+news_corpus <- Corpus(VectorSource(full_text_news),
+                   readerControl=list(readPlain, language="en", load=TRUE))
+```
+
+```{r}
+n_lines <- lapply(news_corpus, nchar)
+max(unlist(n_lines))
+b_lines<- lapply(blogs_corpus, nchar)
+max(unlist(b_lines))
+```
+
+```{r}
+twitter_corpus <- tm_map(twitter_corpus, removeWords, stopwords("english"))
+twitter_corpus <- tm_map(twitter_corpus, stripWhitespace)
+dtm <- DocumentTermMatrix(twitter_corpus)
+love <- inspect(DocumentTermMatrix(twitter_corpus, 
+                           list(dictionary = "love")))
+hate <- inspect(DocumentTermMatrix(twitter_corpus, 
+                           list(dictionary = "hate")))
+```
+```{r}
+love <- sum(grepl("love", vcorpus))
+hate <- sum(grepl("hate", vcorpus))
+love/hate
+```
+
+```{r}
+vcorpus[grepl("biostats", vcorpus)]
+```
+
+```{r}
+t <- "A computer once beat me at chess, but it was no match for me at kickboxing"
+sum(grepl(t, vcorpus))
+```
+
