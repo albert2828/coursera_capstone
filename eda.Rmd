@@ -1,0 +1,91 @@
+---
+title: "Exploratory Data Analysis on text"
+author: "Alberto Macías"
+date: "5/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# EDA on twitter text and predicting text
+
+## Libraries for the analysis
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+
+library(tidytext)
+library(tm) # Text mining
+library(tokenizers) # Tokenize the data
+library(sbo) # Predicting text models
+```
+
+
+## Loading data and preparing corpus
+```{r, warning=FALSE}
+file.txt <-  paste(getwd(), "final", "en_Us", "en_US.twitter.txt", sep = "/")
+con <- file(file.txt, "r")
+twitter.corpus <- readLines(con)
+close(con)
+set.seed(22)
+selection <- sample(1:length(twitter.corpus), 100000)
+twitter.corpus <- twitter.corpus[selection]
+twitter_corpus <- Corpus(VectorSource(twitter.corpus),
+                         readerControl=list(readPlain, language="en_US", load=TRUE))
+inspect(twitter_corpus[1:4])
+```
+
+## Data cleaning
+
+- transform to lowercase  
+- remove punctuation and symbols  
+- stem the corpus  
+- filter profanities  
+- remove stopwords 
+- remove extra white spaces  
+- create term document matrix and 2-gram and 3-gram matrices  
+
+```{r}
+twitter_corpus <- tm_map(twitter_corpus, content_transformer(tolower))
+twitter_corpus <- tm_map(twitter_corpus, removePunctuation)
+twitter_corpus <- tm_map(twitter_corpus, stemDocument)
+```
+
+```{r}
+set.seed(123)
+s <- sample(1:length(twitter_corpus), 1000)
+profanity_list <- unique(lexicon::profanity_alvarez) #List containing stop words
+twitter.profanity <-  sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
+                                    profanity_list=)
+twitter.profanity %>% ggplot(aes(x=profanity))+
+            geom_density()
+```
+
+```{r}
+remove_profanity <- function(x){
+            for(i in length(profanity_list)){
+                        x <- gsub(profanity_list[i],"", x)
+            }
+            return(x)}
+remove_profanity("*damm")
+```
+
+```{r}
+twitter_corpus <- tm_map(twitter_corpus, content_transformer(remove_profanity))
+twitter_corpus <- tm_map(twitter_corpus, stripWhitespace)
+```
+
+2-gram and 3-gram
+
+```{r}
+twitter_corpus <- tm_map(twitter_corpus, removeWords, stopwords("english"))
+twitter_corpus <- tm_map(twitter_corpus, stripWhitespace)
+inspect(twitter_corpus[1:4])
+```
+
+```{r}
+dtm <- DocumentTermMatrix(twitter_corpus)
+```
+

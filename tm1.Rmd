@@ -18,7 +18,7 @@ library(tidytext)
 ```
 
 ```{r}
-twitter_us <-  paste(getwd(), "final", "en_Us", "en_US.twitter.txt", sep = "/")
+file <-  paste(getwd(), "final", "en_Us", "en_US.twitter.txt", sep = "/")
 con <- file(twitter_us, "r")
 vcorpus <- readLines(con)
 close(con)
