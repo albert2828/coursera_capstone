@@ -56,28 +56,55 @@ twitter_corpus <- tm_map(twitter_corpus, stemDocument)
 ```{r}
 set.seed(123)
 s <- sample(1:length(twitter_corpus), 1000)
-profanity_list <- unique(lexicon::profanity_alvarez) #List containing stop words
-twitter.profanity <-  sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
-                                    profanity_list=)
+profanity_list <- unique(lexicon::profanity_banned) #List containing stop words
+twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
+                                    profanity_list=profanity_list)
 twitter.profanity %>% ggplot(aes(x=profanity))+
             geom_density()
 ```
 
+
 ```{r}
-remove_profanity <- function(x){
-            for(i in length(profanity_list)){
-                        x <- gsub(profanity_list[i],"", x)
-            }
-            return(x)}
-remove_profanity("*damm")
+twitter_corpus <- tm_map(twitter_corpus, removeWords, profanity_list)
+twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
+                                    profanity_list=profanity_list)
+mean(twitter.profanity$profanity)
+# Create a confidence interval with bootstrap sampling
 ```
 
 ```{r}
-twitter_corpus <- tm_map(twitter_corpus, content_transformer(remove_profanity))
 twitter_corpus <- tm_map(twitter_corpus, stripWhitespace)
 ```
 
-2-gram and 3-gram
+
+```{r}
+twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
+                                   n=2)
+twitter_2_grams <- unlist(twitter_2_grams)
+twitter_2_grams[1:5]
+table_2_grams <- data.frame(table(twitter_2_grams))
+table_2_grams <- table_2_grams %>% arrange(desc(Freq))
+head(table_2_grams)
+```
+
+```{r}
+twitter_2_grams2 <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
+                                   n=2, stopwords = stopwords("en"))
+twitter_2_grams2 <- unlist(twitter_2_grams2)
+table_2_grams2 <- data.frame(table(twitter_2_grams2))
+table_2_grams2 <- table_2_grams2 %>% arrange(desc(Freq))
+head(table_2_grams2)
+```
+
+```{r}
+twitter_3_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
+                                   n=3, stopwords = stopwords("en"))
+twitter_3_grams <- unlist(twitter_3_grams)
+table_3_grams <- data.frame(table(twitter_3_grams))
+table_3_grams <- table_3_grams %>% arrange(desc(Freq))
+head(table_3_grams, 10)
+```
+
 
 ```{r}
 twitter_corpus <- tm_map(twitter_corpus, removeWords, stopwords("english"))
@@ -89,3 +116,4 @@ inspect(twitter_corpus[1:4])
 dtm <- DocumentTermMatrix(twitter_corpus)
 ```
 
+## EDA
