@@ -20,6 +20,8 @@ library(tidytext)
 library(tm) # Text mining
 library(tokenizers) # Tokenize the data
 library(sbo) # Predicting text models
+library(wordcloud) #Word Clouds
+library(RColorBrewer) 
 ```
 
 
@@ -27,44 +29,16 @@ library(sbo) # Predicting text models
 ```{r, warning=FALSE}
 file.txt <- "./final/en_Us/en_US.twitter.txt"
 con <- file(file.txt, "r")
-twitter.corpus <- readLines(con)
+twitter_corpus <- readLines(con)
 close(con)
-length(twitter.corpus)
+length(twitter_corpus)
 set.seed(22)
-selection <- sample(1:length(twitter.corpus), 100000)
-twitter.corpus <- twitter.corpus[selection]
-twitter_corpus <- Corpus(VectorSource(twitter.corpus),
+selection <- sample(1:length(twitter_corpus), 200000)
+twitter_corpus <- twitter_corpus[selection]
+twitter_corpus <- Corpus(VectorSource(twitter_corpus),
                          readerControl=list(readPlain, language="en_US", load=TRUE))
 inspect(twitter_corpus[1:4])
 ```
-
-```{r}
-file.txt <- "./final/en_Us/en_US.news.txt"
-con <- file(file.txt, "r")
-news.corpus <- readLines(con)
-close(con)
-length(news.corpus)
-set.seed(23)
-selection <- sample(1:length(news.corpus), 20000)
-news.corpus <- news.corpus[selection]
-news_corpus <- Corpus(VectorSource(news.corpus),
-                      readerControl = list(readPlain, language="en_US", load=TRUE))
-```
-
-
-```{r}
-file.txt <- "./final/en_Us/en_US.blogs.txt"
-con <- file(file.txt, "r")
-blogs.corpus <- readLines(con)
-close(con)
-length(blogs.corpus)
-set.seed(24)
-selection < sample(1:length(blogs.corpus), 100000)
-blogs.corpus <- blogs.corpus[selection]
-blogs_corpus <- Corpus(VectorSource(blogs.corpus), 
-                       readerControl = list(readPlain, language="en_US", load=TRUE))
-```
-
 
 ## Data cleaning
 
@@ -84,7 +58,7 @@ twitter_corpus <- tm_map(twitter_corpus, stemDocument)
 
 ```{r}
 set.seed(123)
-s <- sample(1:length(twitter_corpus), 1000)
+s <- sample(1:length(twitter_corpus), 2000)
 profanity_list <- unique(lexicon::profanity_banned) #List containing stop words
 twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
                                     profanity_list=profanity_list)
@@ -110,27 +84,45 @@ twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character),
                                    n=2)
 twitter_2_grams <- unlist(twitter_2_grams)
 twitter_2_grams[1:5]
-table_2_grams <- data.frame(table(twitter_2_grams))
-table_2_grams <- table_2_grams %>% arrange(desc(Freq))
-head(table_2_grams)
+twitter_2_grams <- data.frame(table(twitter_2_grams))
+twitter_2_grams <- twitter_2_grams %>% arrange(desc(Freq))
+head(twitter_2_grams)
 ```
 
 ```{r}
-twitter_2_grams2 <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
+twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
                                    n=2, stopwords = stopwords("en"))
-twitter_2_grams2 <- unlist(twitter_2_grams2)
-table_2_grams2 <- data.frame(table(twitter_2_grams2))
-table_2_grams2 <- table_2_grams2 %>% arrange(desc(Freq))
-head(table_2_grams2)
+twitter_2_grams <- unlist(twitter_2_grams)
+twitter_2_grams <- data.frame(table(twitter_2_grams))
+twitter_2_grams <- twitter_2_grams %>% arrange(desc(Freq))
+head(twitter_2_grams)
 ```
 
 ```{r}
 twitter_3_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
                                    n=3, stopwords = stopwords("en"))
 twitter_3_grams <- unlist(twitter_3_grams)
-table_3_grams <- data.frame(table(twitter_3_grams))
-table_3_grams <- table_3_grams %>% arrange(desc(Freq))
-head(table_3_grams, 10)
+twitter_3_grams <- data.frame(table(twitter_3_grams))
+twitter_3_grams <- twitter_3_grams %>% arrange(desc(Freq))
+head(twitter_3_grams, 10)
+```
+```{r}
+my_stop_words <- c("â", "œ", "ðÿ")
+twitter_corpus <- tm_map(twitter_corpus, removeWords, my_stop_words)
+
+twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
+                                   n=2, stopwords = stopwords("en"))
+twitter_2_grams <- unlist(twitter_2_grams)
+twitter_2_grams <- data.frame(table(twitter_2_grams))
+twitter_2_grams <- twitter_2_grams %>% arrange(desc(Freq))
+head(twitter_2_grams, 10)
+
+twitter_3_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
+                                   n=3, stopwords = stopwords("en"))
+twitter_3_grams <- unlist(twitter_3_grams)
+twitter_3_grams <- data.frame(table(twitter_3_grams))
+twitter_3_grams <- twitter_3_grams %>% arrange(desc(Freq))
+head(twitter_3_grams, 10)
 ```
 
 
@@ -141,35 +133,85 @@ inspect(twitter_corpus[1:4])
 ```
 
 ```{r}
-tuiter.dtm <- DocumentTermMatrix(twitter_corpus)
+twitter.dtm <- DocumentTermMatrix(twitter_corpus)
 ```
 
 
-```{r}
+```{r, include=F}
 file.txt <- "./final/en_Us/en_US.news.txt"
 con <- file(file.txt, "r")
-news.corpus <- readLines(con)
+news_corpus <- readLines(con)
 close(con)
-length(news.corpus)
+length(news_corpus)
 set.seed(23)
-selection <- sample(1:length(news.corpus), 20000)
-news.corpus <- news.corpus[selection]
-news_corpus <- Corpus(VectorSource(news.corpus),
+selection <- sample(1:length(news_corpus), 20000)
+news_corpus <- news_corpus[selection]
+news_corpus <- Corpus(VectorSource(news_corpus),
                       readerControl = list(readPlain, language="en_US", load=TRUE))
 ```
 
+```{r, include=F}
+news_corpus <- tm_map(news_corpus, content_transformer(tolower))
+news_corpus <- tm_map(news_corpus, removePunctuation)
+news_corpus <- tm_map(news_corpus, stemDocument)
+news_corpus <- tm_map(news_corpus, removeWords, profanity_list)
+news_corpus <- tm_map(news_corpus, removeWords, my_stop_words)
+news_corpus <- tm_map(news_corpus, removeWords, stopwords("english"))
+news_corpus <- tm_map(news_corpus, stripWhitespace)
 
-```{r}
+news_2_grams <- tokenize_ngrams(sapply(news_corpus, as.character), 
+                                   n=2, stopwords = stopwords("en"))
+news_2_grams <- unlist(news_2_grams)
+news_2_grams <- data.frame(table(news_2_grams))
+news_2_grams <- news_2_grams %>% arrange(desc(Freq))
+
+news_3_grams <- tokenize_ngrams(sapply(news_corpus, as.character), 
+                                   n=3, stopwords = stopwords("en"))
+news_3_grams <- unlist(news_3_grams)
+news_3_grams <- data.frame(table(news_3_grams))
+news_3_grams <- news_3_grams %>% arrange(desc(Freq))
+
+news.dtm <- DocumentTermMatrix(news_corpus)
+```
+
+```{r, include=F}
 file.txt <- "./final/en_Us/en_US.blogs.txt"
 con <- file(file.txt, "r")
-blogs.corpus <- readLines(con)
+blogs_corpus <- readLines(con)
 close(con)
-length(blogs.corpus)
+length(blogs_corpus)
+set.seed(1515)
+s <- sample(1:length(blogs_corpus), 100)
+mean(sapply(blogs_corpus[s], nchar))
 set.seed(24)
-selection <- sample(1:length(blogs.corpus), 100000)
-blogs.corpus <- blogs.corpus[selection]
-blogs_corpus <- Corpus(VectorSource(blogs.corpus), 
+selection <- sample(1:length(blogs_corpus), 50000)
+blogs_corpus <- blogs_corpus[selection]
+blogs_corpus <- Corpus(VectorSource(blogs_corpus), 
                        readerControl = list(readPlain, language="en_US", load=TRUE))
+```
+
+```{r, include=F}
+blogs_corpus <- tm_map(blogs_corpus, content_transformer(tolower))
+blogs_corpus <- tm_map(blogs_corpus, removePunctuation)
+blogs_corpus <- tm_map(blogs_corpus, stemDocument)
+blogs_corpus <- tm_map(blogs_corpus, removeWords, profanity_list)
+blogs_corpus <- tm_map(blogs_corpus, removeWords, my_stop_words)
+blogs_corpus <- tm_map(blogs_corpus, removeWords, stopwords("english"))
+blogs_corpus <- tm_map(blogs_corpus, stripWhitespace)
+
+blogs_2_grams <- tokenize_ngrams(sapply(blogs_corpus, as.character), 
+                                   n=2, stopwords = stopwords("en"))
+blogs_2_grams <- unlist(blogs_2_grams)
+blogs_2_grams <- data.frame(table(blogs_2_grams))
+blogs_2_grams <- blogs_2_grams %>% arrange(desc(Freq))
+
+blogs_3_grams <- tokenize_ngrams(sapply(blogs_corpus, as.character), 
+                                   n=3, stopwords = stopwords("en"))
+blogs_3_grams <- unlist(blogs_3_grams)
+blogs_3_grams <- data.frame(table(blogs_3_grams))
+blogs_3_grams <- blogs_3_grams %>% arrange(desc(Freq))
+
+blogs.dtm <- DocumentTermMatrix(blogs_corpus)
 ```
 
 ## EDA
