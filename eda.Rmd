@@ -25,10 +25,11 @@ library(sbo) # Predicting text models
 
 ## Loading data and preparing corpus
 ```{r, warning=FALSE}
-file.txt <-  paste(getwd(), "final", "en_Us", "en_US.twitter.txt", sep = "/")
+file.txt <- "./final/en_Us/en_US.twitter.txt"
 con <- file(file.txt, "r")
 twitter.corpus <- readLines(con)
 close(con)
+length(twitter.corpus)
 set.seed(22)
 selection <- sample(1:length(twitter.corpus), 100000)
 twitter.corpus <- twitter.corpus[selection]
@@ -36,6 +37,34 @@ twitter_corpus <- Corpus(VectorSource(twitter.corpus),
                          readerControl=list(readPlain, language="en_US", load=TRUE))
 inspect(twitter_corpus[1:4])
 ```
+
+```{r}
+file.txt <- "./final/en_Us/en_US.news.txt"
+con <- file(file.txt, "r")
+news.corpus <- readLines(con)
+close(con)
+length(news.corpus)
+set.seed(23)
+selection <- sample(1:length(news.corpus), 20000)
+news.corpus <- news.corpus[selection]
+news_corpus <- Corpus(VectorSource(news.corpus),
+                      readerControl = list(readPlain, language="en_US", load=TRUE))
+```
+
+
+```{r}
+file.txt <- "./final/en_Us/en_US.blogs.txt"
+con <- file(file.txt, "r")
+blogs.corpus <- readLines(con)
+close(con)
+length(blogs.corpus)
+set.seed(24)
+selection < sample(1:length(blogs.corpus), 100000)
+blogs.corpus <- blogs.corpus[selection]
+blogs_corpus <- Corpus(VectorSource(blogs.corpus), 
+                       readerControl = list(readPlain, language="en_US", load=TRUE))
+```
+
 
 ## Data cleaning
 
@@ -45,7 +74,7 @@ inspect(twitter_corpus[1:4])
 - filter profanities  
 - remove stopwords 
 - remove extra white spaces  
-- create term document matrix and 2-gram and 3-gram matrices  
+- create term document matrix and 2-gram and 3-gram tables 
 
 ```{r}
 twitter_corpus <- tm_map(twitter_corpus, content_transformer(tolower))
@@ -69,7 +98,6 @@ twitter_corpus <- tm_map(twitter_corpus, removeWords, profanity_list)
 twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
                                     profanity_list=profanity_list)
 mean(twitter.profanity$profanity)
-# Create a confidence interval with bootstrap sampling
 ```
 
 ```{r}
@@ -113,7 +141,35 @@ inspect(twitter_corpus[1:4])
 ```
 
 ```{r}
-dtm <- DocumentTermMatrix(twitter_corpus)
+tuiter.dtm <- DocumentTermMatrix(twitter_corpus)
+```
+
+
+```{r}
+file.txt <- "./final/en_Us/en_US.news.txt"
+con <- file(file.txt, "r")
+news.corpus <- readLines(con)
+close(con)
+length(news.corpus)
+set.seed(23)
+selection <- sample(1:length(news.corpus), 20000)
+news.corpus <- news.corpus[selection]
+news_corpus <- Corpus(VectorSource(news.corpus),
+                      readerControl = list(readPlain, language="en_US", load=TRUE))
+```
+
+
+```{r}
+file.txt <- "./final/en_Us/en_US.blogs.txt"
+con <- file(file.txt, "r")
+blogs.corpus <- readLines(con)
+close(con)
+length(blogs.corpus)
+set.seed(24)
+selection <- sample(1:length(blogs.corpus), 100000)
+blogs.corpus <- blogs.corpus[selection]
+blogs_corpus <- Corpus(VectorSource(blogs.corpus), 
+                       readerControl = list(readPlain, language="en_US", load=TRUE))
 ```
 
 ## EDA
