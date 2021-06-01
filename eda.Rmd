@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 # EDA on twitter text and predicting text
@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, message=FALSE, warning=FALSE}
 library(dplyr)
 library(ggplot2)
+library(gridExtra)
 
 library(tidytext)
 library(tm) # Text mining
@@ -33,7 +34,7 @@ twitter_corpus <- readLines(con)
 close(con)
 length(twitter_corpus)
 set.seed(22)
-selection <- sample(1:length(twitter_corpus), 200000)
+selection <- sample(1:length(twitter_corpus), 1000)
 twitter_corpus <- twitter_corpus[selection]
 twitter_corpus <- Corpus(VectorSource(twitter_corpus),
                          readerControl=list(readPlain, language="en_US", load=TRUE))
@@ -58,9 +59,8 @@ twitter_corpus <- tm_map(twitter_corpus, stemDocument)
 
 ```{r}
 set.seed(123)
-s <- sample(1:length(twitter_corpus), 2000)
 profanity_list <- unique(lexicon::profanity_banned) #List containing stop words
-twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
+twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus, as.character), 
                                     profanity_list=profanity_list)
 twitter.profanity %>% ggplot(aes(x=profanity))+
             geom_density()
@@ -137,20 +137,20 @@ twitter.dtm <- DocumentTermMatrix(twitter_corpus)
 ```
 
 
-```{r, include=F}
+```{r}
 file.txt <- "./final/en_Us/en_US.news.txt"
 con <- file(file.txt, "r")
 news_corpus <- readLines(con)
 close(con)
 length(news_corpus)
 set.seed(23)
-selection <- sample(1:length(news_corpus), 20000)
+selection <- sample(1:length(news_corpus), 1000)
 news_corpus <- news_corpus[selection]
 news_corpus <- Corpus(VectorSource(news_corpus),
                       readerControl = list(readPlain, language="en_US", load=TRUE))
 ```
 
-```{r, include=F}
+```{r}
 news_corpus <- tm_map(news_corpus, content_transformer(tolower))
 news_corpus <- tm_map(news_corpus, removePunctuation)
 news_corpus <- tm_map(news_corpus, stemDocument)
@@ -174,7 +174,7 @@ news_3_grams <- news_3_grams %>% arrange(desc(Freq))
 news.dtm <- DocumentTermMatrix(news_corpus)
 ```
 
-```{r, include=F}
+```{r}
 file.txt <- "./final/en_Us/en_US.blogs.txt"
 con <- file(file.txt, "r")
 blogs_corpus <- readLines(con)
@@ -184,13 +184,13 @@ set.seed(1515)
 s <- sample(1:length(blogs_corpus), 100)
 mean(sapply(blogs_corpus[s], nchar))
 set.seed(24)
-selection <- sample(1:length(blogs_corpus), 50000)
+selection <- sample(1:length(blogs_corpus), 1000)
 blogs_corpus <- blogs_corpus[selection]
 blogs_corpus <- Corpus(VectorSource(blogs_corpus), 
                        readerControl = list(readPlain, language="en_US", load=TRUE))
 ```
 
-```{r, include=F}
+```{r}
 blogs_corpus <- tm_map(blogs_corpus, content_transformer(tolower))
 blogs_corpus <- tm_map(blogs_corpus, removePunctuation)
 blogs_corpus <- tm_map(blogs_corpus, stemDocument)
@@ -215,3 +215,51 @@ blogs.dtm <- DocumentTermMatrix(blogs_corpus)
 ```
 
 ## EDA
+
+- Wordclouds of each corpus  
+- Plot of most frequent words and most frequent 2-grams and 3-grams  
+- Association of most frequent words  
+- Distribution of most frequent words 
+
+```{r}
+twitter.m <- as.matrix(twitter.dtm)
+twitter.f <- colSums(twitter.m)
+twitter.d <- data.frame(word = colnames(twitter.m), freq = twitter.f)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "Most frequent words in Twittwer corpus")
+wordcloud(words = twitter.d$word, freq = twitter.d$freq, main ="Title", min.freq = 10,
+          max.words = 200, random.order = F, rot.per = 0.35,
+          colors = brewer.pal(8, "Set1"),
+          scale = c(2.5,0.7))
+```
+
+```{r}
+news.m <- as.matrix(news.dtm)
+news.f <-colSums(news.m)
+news.d <- data.frame(word=colnames(news.m), freq=news.f)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "Most frequent words in News corpus")
+wordcloud(words = news.d$word, freq = news.d$freq, main="Title", min.freq = 10,
+          max.words = 200, random.order = F, rot.per = 0.35,
+          colors = brewer.pal(8, "Set1"),
+          scale = c(2.5,0.7))
+```
+
+```{r}
+blogs.m <- as.matrix(blogs.dtm)
+blogs.f <- colSums(blogs.m)
+blogs.d <- data.frame(word=colnames(blogs.m), freq=blogs.f)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "Most frequent words in news corpus")
+wordcloud(words = blogs.d$word, freq = blogs.d$freq, main="Title", min.freq = 10,
+          max.words = 200, random.order = F, rot.per = .35,
+          colors = brewer.pal(8, "Set1"),
+          scale = c(2.5,0.7))
+```
+
