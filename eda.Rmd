@@ -1,15 +1,17 @@
 ---
-title: "Exploratory Data Analysis on text"
+title: "Milestone Report - NLP and Text predictions"
 author: "Alberto Macías"
 date: "5/27/2021"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = "Center",
+                      fig.height = 4, fig.width = 5)
 ```
 
-# EDA on twitter text and predicting text
+## Introduction 
+
 
 ## Libraries for the analysis
 ```{r, message=FALSE, warning=FALSE}
@@ -17,12 +19,12 @@ library(dplyr)
 library(ggplot2)
 library(gridExtra)
 
+library(stringr)
 library(tidytext)
 library(tm) # Text mining
 library(tokenizers) # Tokenize the data
-library(sbo) # Predicting text models
-library(wordcloud) #Word Clouds
-library(RColorBrewer) 
+library(wordcloud) # Wordclouds
+library(RColorBrewer)
 ```
 
 
@@ -34,7 +36,7 @@ twitter_corpus <- readLines(con)
 close(con)
 length(twitter_corpus)
 set.seed(22)
-selection <- sample(1:length(twitter_corpus), 1000)
+selection <- sample(1:length(twitter_corpus), 10000)
 twitter_corpus <- twitter_corpus[selection]
 twitter_corpus <- Corpus(VectorSource(twitter_corpus),
                          readerControl=list(readPlain, language="en_US", load=TRUE))
@@ -55,15 +57,23 @@ inspect(twitter_corpus[1:4])
 twitter_corpus <- tm_map(twitter_corpus, content_transformer(tolower))
 twitter_corpus <- tm_map(twitter_corpus, removePunctuation)
 twitter_corpus <- tm_map(twitter_corpus, stemDocument)
+twitter_corpus <- tm_map(twitter_corpus, removeNumbers)
 ```
 
 ```{r}
 set.seed(123)
+s <- sample(1:100000, 10000)
 profanity_list <- unique(lexicon::profanity_banned) #List containing stop words
-twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus, as.character), 
+twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
                                     profanity_list=profanity_list)
 twitter.profanity %>% ggplot(aes(x=profanity))+
-            geom_density()
+            geom_density()+
+            theme_bw()+
+            labs(title="Distribution of profanity rate in a sample of corpus",
+                 x = "Profanity Rate",
+                 y="")+
+            theme(axis.title = element_text(size = 12),
+             plot.title = element_text(size = 15))
 ```
 
 
@@ -75,62 +85,47 @@ mean(twitter.profanity$profanity)
 ```
 
 ```{r}
-twitter_corpus <- tm_map(twitter_corpus, stripWhitespace)
-```
-
-
-```{r}
-twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
-                                   n=2)
-twitter_2_grams <- unlist(twitter_2_grams)
-twitter_2_grams[1:5]
-twitter_2_grams <- data.frame(table(twitter_2_grams))
-twitter_2_grams <- twitter_2_grams %>% arrange(desc(Freq))
-head(twitter_2_grams)
+twitter_corpus <- tm_map(twitter_corpus, removeWords, stopwords("english"))
 ```
 
 ```{r}
-twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
-                                   n=2, stopwords = stopwords("en"))
-twitter_2_grams <- unlist(twitter_2_grams)
-twitter_2_grams <- data.frame(table(twitter_2_grams))
-twitter_2_grams <- twitter_2_grams %>% arrange(desc(Freq))
-head(twitter_2_grams)
-```
+subs <- function(x){
+            x <- gsub("â", "", x)
+            return(x)
+}
 
-```{r}
-twitter_3_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
-                                   n=3, stopwords = stopwords("en"))
-twitter_3_grams <- unlist(twitter_3_grams)
-twitter_3_grams <- data.frame(table(twitter_3_grams))
-twitter_3_grams <- twitter_3_grams %>% arrange(desc(Freq))
-head(twitter_3_grams, 10)
-```
-```{r}
+twitter_corpus <- tm_map(twitter_corpus, content_transformer(subs))
 my_stop_words <- c("â", "œ", "ðÿ")
 twitter_corpus <- tm_map(twitter_corpus, removeWords, my_stop_words)
-
-twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
-                                   n=2, stopwords = stopwords("en"))
-twitter_2_grams <- unlist(twitter_2_grams)
-twitter_2_grams <- data.frame(table(twitter_2_grams))
-twitter_2_grams <- twitter_2_grams %>% arrange(desc(Freq))
-head(twitter_2_grams, 10)
-
-twitter_3_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), 
-                                   n=3, stopwords = stopwords("en"))
-twitter_3_grams <- unlist(twitter_3_grams)
-twitter_3_grams <- data.frame(table(twitter_3_grams))
-twitter_3_grams <- twitter_3_grams %>% arrange(desc(Freq))
-head(twitter_3_grams, 10)
+twitter_corpus <- tm_map(twitter_corpus, stripWhitespace)
 ```
 
 
 ```{r}
-twitter_corpus <- tm_map(twitter_corpus, removeWords, stopwords("english"))
-twitter_corpus <- tm_map(twitter_corpus, stripWhitespace)
-inspect(twitter_corpus[1:4])
+twitter_1_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), n=1)
+twitter_1_grams <- unlist(twitter_1_grams)
+twitter_1_grams <- data.frame(table(twitter_1_grams))
+twitter_1_grams <- twitter_1_grams %>% arrange(desc(Freq))
+head(twitter_1_grams)
 ```
+
+
+```{r}
+twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), n=2)
+twitter_2_grams <- unlist(twitter_2_grams)
+twitter_2_grams <- data.frame(table(twitter_2_grams))
+twitter_2_grams <- twitter_2_grams %>% arrange(desc(Freq))
+head(twitter_2_grams)
+```
+
+```{r}
+twitter_3_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), n=3)
+twitter_3_grams <- unlist(twitter_3_grams)
+twitter_3_grams <- data.frame(table(twitter_3_grams))
+twitter_3_grams <- twitter_3_grams %>% arrange(desc(Freq))
+head(twitter_3_grams)
+```
+
 
 ```{r}
 twitter.dtm <- DocumentTermMatrix(twitter_corpus)
@@ -144,7 +139,7 @@ news_corpus <- readLines(con)
 close(con)
 length(news_corpus)
 set.seed(23)
-selection <- sample(1:length(news_corpus), 1000)
+selection <- sample(1:length(news_corpus), 10000)
 news_corpus <- news_corpus[selection]
 news_corpus <- Corpus(VectorSource(news_corpus),
                       readerControl = list(readPlain, language="en_US", load=TRUE))
@@ -155,18 +150,24 @@ news_corpus <- tm_map(news_corpus, content_transformer(tolower))
 news_corpus <- tm_map(news_corpus, removePunctuation)
 news_corpus <- tm_map(news_corpus, stemDocument)
 news_corpus <- tm_map(news_corpus, removeWords, profanity_list)
+news_corpus <- tm_map(news_corpus, content_transformer(subs))
 news_corpus <- tm_map(news_corpus, removeWords, my_stop_words)
+news_corpus <- tm_map(news_corpus, removeNumbers)
 news_corpus <- tm_map(news_corpus, removeWords, stopwords("english"))
 news_corpus <- tm_map(news_corpus, stripWhitespace)
 
-news_2_grams <- tokenize_ngrams(sapply(news_corpus, as.character), 
-                                   n=2, stopwords = stopwords("en"))
+news_1_grams <- tokenize_ngrams(sapply(news_corpus, as.character), n=1)
+news_1_grams <- unlist(news_1_grams)
+news_1_grams <- data.frame(table(news_1_grams))
+news_1_grams <- news_1_grams %>% arrange(desc(Freq))
+head(news_1_grams)
+
+news_2_grams <- tokenize_ngrams(sapply(news_corpus, as.character), n=2)
 news_2_grams <- unlist(news_2_grams)
 news_2_grams <- data.frame(table(news_2_grams))
 news_2_grams <- news_2_grams %>% arrange(desc(Freq))
 
-news_3_grams <- tokenize_ngrams(sapply(news_corpus, as.character), 
-                                   n=3, stopwords = stopwords("en"))
+news_3_grams <- tokenize_ngrams(sapply(news_corpus, as.character), n=3)
 news_3_grams <- unlist(news_3_grams)
 news_3_grams <- data.frame(table(news_3_grams))
 news_3_grams <- news_3_grams %>% arrange(desc(Freq))
@@ -181,10 +182,8 @@ blogs_corpus <- readLines(con)
 close(con)
 length(blogs_corpus)
 set.seed(1515)
-s <- sample(1:length(blogs_corpus), 100)
-mean(sapply(blogs_corpus[s], nchar))
 set.seed(24)
-selection <- sample(1:length(blogs_corpus), 1000)
+selection <- sample(1:length(blogs_corpus), 100000)
 blogs_corpus <- blogs_corpus[selection]
 blogs_corpus <- Corpus(VectorSource(blogs_corpus), 
                        readerControl = list(readPlain, language="en_US", load=TRUE))
@@ -196,17 +195,22 @@ blogs_corpus <- tm_map(blogs_corpus, removePunctuation)
 blogs_corpus <- tm_map(blogs_corpus, stemDocument)
 blogs_corpus <- tm_map(blogs_corpus, removeWords, profanity_list)
 blogs_corpus <- tm_map(blogs_corpus, removeWords, my_stop_words)
+blogs_corpus <- tm_map(blogs_corpus, removeNumbers)
 blogs_corpus <- tm_map(blogs_corpus, removeWords, stopwords("english"))
+blogs_corpus <- tm_map(blogs_corpus, content_transformer(subs))
 blogs_corpus <- tm_map(blogs_corpus, stripWhitespace)
 
-blogs_2_grams <- tokenize_ngrams(sapply(blogs_corpus, as.character), 
-                                   n=2, stopwords = stopwords("en"))
+blogs_1_grams <- tokenize_ngrams(sapply(blogs_corpus, as.character), n=1)
+blogs_1_grams <- unlist(blogs_1_grams)
+blogs_1_grams <- data.frame(table(blogs_1_grams))
+blogs_1_grams <- blogs_1_grams %>% arrange(desc(Freq))
+
+blogs_2_grams <- tokenize_ngrams(sapply(blogs_corpus, as.character), n=2)
 blogs_2_grams <- unlist(blogs_2_grams)
 blogs_2_grams <- data.frame(table(blogs_2_grams))
 blogs_2_grams <- blogs_2_grams %>% arrange(desc(Freq))
 
-blogs_3_grams <- tokenize_ngrams(sapply(blogs_corpus, as.character), 
-                                   n=3, stopwords = stopwords("en"))
+blogs_3_grams <- tokenize_ngrams(sapply(blogs_corpus, as.character), n=3)
 blogs_3_grams <- unlist(blogs_3_grams)
 blogs_3_grams <- data.frame(table(blogs_3_grams))
 blogs_3_grams <- blogs_3_grams %>% arrange(desc(Freq))
@@ -217,49 +221,269 @@ blogs.dtm <- DocumentTermMatrix(blogs_corpus)
 ## EDA
 
 - Wordclouds of each corpus  
-- Plot of most frequent words and most frequent 2-grams and 3-grams  
+- Plot of most frequent words,frequent 2-grams and 3-grams  
 - Association of most frequent words  
 - Distribution of most frequent words 
 
 ```{r}
-twitter.m <- as.matrix(twitter.dtm)
-twitter.f <- colSums(twitter.m)
-twitter.d <- data.frame(word = colnames(twitter.m), freq = twitter.f)
+colnames(twitter_1_grams) <- c("word", "freq")
+twitter_1_grams$word <- as.character(twitter_1_grams$word)
 layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
 par(mar=rep(0, 4))
 plot.new()
 text(x=0.5, y=0.5, "Most frequent words in Twittwer corpus")
-wordcloud(words = twitter.d$word, freq = twitter.d$freq, main ="Title", min.freq = 10,
-          max.words = 200, random.order = F, rot.per = 0.35,
+wordcloud(words = twitter_1_grams$word, freq = twitter_1_grams$freq, 
+          main ="Title", min.freq = 10,max.words = 200, 
+          random.order = F, rot.per = 0.35,
           colors = brewer.pal(8, "Set1"),
           scale = c(2.5,0.7))
 ```
 
 ```{r}
-news.m <- as.matrix(news.dtm)
-news.f <-colSums(news.m)
-news.d <- data.frame(word=colnames(news.m), freq=news.f)
+twitter_1_grams %>% filter(freq>300) %>%
+            arrange(desc(freq)) %>%
+            ggplot(aes(x=freq, y=reorder(word, freq))) +
+            geom_bar(stat = "identity", color="black", fill="#0066ff")+
+            theme_bw()+
+            labs(title="Most frequent words in Twitter corpus",
+                 x="",
+                 y="")+
+    theme(axis.text.y = element_text(angle = 40, hjust = 1),
+          legend.text = element_text(size = 14),
+          axis.title = element_text(size = 14),
+          plot.title = element_text(size = 15),
+          plot.subtitle = element_text(size = 16))
+```
+
+```{r}
+twitter_2_grams %>% filter(Freq > 25) %>%
+            ggplot(aes(x=Freq, y = reorder(twitter_2_grams, Freq)))+
+            geom_bar(stat = "identity", color="black", fill="#66ccff")+
+            theme_bw()+
+            labs(title="Most frequent 2-grams in Twitter Corpus",
+                 x="",
+                 y="")+
+            theme(axis.text.y = element_text(angle = 40, hjust = 1),
+            legend.text = element_text(size = 14),
+            axis.title = element_text(size = 14),
+            plot.title = element_text(size = 15),
+            plot.subtitle = element_text(size = 16))
+```
+
+```{r}
+twitter_3_grams %>% filter(Freq > 3) %>%
+            ggplot(aes(x=Freq, y = reorder(twitter_3_grams, Freq)))+
+            geom_bar(stat = "identity", color="black", fill="#66ccff")+
+            theme_bw()+
+            labs(title="Most frequent 2-grams in Twitter Corpus",
+                 x="",
+                 y="")+
+            theme(axis.text.y = element_text(angle = 40, hjust = 1),
+            legend.text = element_text(size = 14),
+            axis.title = element_text(size = 14),
+            plot.title = element_text(size = 15),
+            plot.subtitle = element_text(size = 16))
+```
+
+```{r}
+colnames(news_1_grams) <- c("word", "freq")
+news_1_grams$word <- as.character(news_1_grams$word)
 layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
 par(mar=rep(0, 4))
 plot.new()
 text(x=0.5, y=0.5, "Most frequent words in News corpus")
-wordcloud(words = news.d$word, freq = news.d$freq, main="Title", min.freq = 10,
-          max.words = 200, random.order = F, rot.per = 0.35,
+wordcloud(words = news_1_grams$word, freq = news_1_grams$freq, 
+          main="Title", min.freq = 10,max.words = 200, 
+          random.order = F, rot.per = 0.35,
           colors = brewer.pal(8, "Set1"),
           scale = c(2.5,0.7))
 ```
 
 ```{r}
-blogs.m <- as.matrix(blogs.dtm)
-blogs.f <- colSums(blogs.m)
-blogs.d <- data.frame(word=colnames(blogs.m), freq=blogs.f)
+news_1_grams %>% filter(freq>400) %>%
+            arrange(desc(freq)) %>%
+            ggplot(aes(x=freq, y=reorder(word, freq))) +
+            geom_bar(stat = "identity", color="black", fill="#ff3399")+
+            theme_bw()+
+            labs(title="Most frequent words in News Corpus",
+                 x="",
+                 y="")+
+    theme(axis.text.y = element_text(angle = 40, hjust = 1),
+          legend.text = element_text(size = 14),
+          axis.title = element_text(size = 14),
+          plot.title = element_text(size = 15),
+          plot.subtitle = element_text(size = 16))
+```
+
+```{r}
+news_2_grams %>% filter(Freq > 30) %>%
+            ggplot(aes(x=Freq, y = reorder(news_2_grams, Freq)))+
+            geom_bar(stat = "identity", color="black", fill="#ff99ff")+
+            theme_bw()+
+            labs(title="Most frequent 2-grams in News Corpus",
+                 x="",
+                 y="")+
+    theme(axis.text.y = element_text(angle = 40, hjust = 1),
+          legend.text = element_text(size = 14),
+          axis.title = element_text(size = 14),
+          plot.title = element_text(size = 15),
+          plot.subtitle = element_text(size = 16))
+```
+
+```{r}
+news_3_grams %>% filter(Freq > 5) %>%
+            ggplot(aes(x=Freq, y = reorder(news_3_grams, Freq)))+
+            geom_bar(stat = "identity", color="black", fill="#ff99ff")+
+            theme_bw()+
+            labs(title="Most frequent 2-grams in News Corpus",
+                 x="",
+                 y="")+
+    theme(axis.text.y = element_text(angle = 30, hjust = 1),
+          plot.title = element_text(size = 15))
+```
+
+
+```{r}
+colnames(blogs_1_grams) <- c("word", "freq")
+blogs_1_grams$word <- as.character(blogs_1_grams$word)
 layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
 par(mar=rep(0, 4))
 plot.new()
-text(x=0.5, y=0.5, "Most frequent words in news corpus")
-wordcloud(words = blogs.d$word, freq = blogs.d$freq, main="Title", min.freq = 10,
+text(x=0.5, y=0.5, "Most frequent words in blogs corpus")
+wordcloud(words = blogs_1_grams$word, freq = blogs_1_grams$freq, main="Title", min.freq = 10,
           max.words = 200, random.order = F, rot.per = .35,
           colors = brewer.pal(8, "Set1"),
           scale = c(2.5,0.7))
 ```
 
+```{r}
+blogs_1_grams %>% filter(freq>6000) %>%
+            arrange(desc(freq)) %>%
+            ggplot(aes(x=freq, y=reorder(word, freq))) +
+            geom_bar(stat = "identity", color="black", fill="#cc9900")+
+            theme_bw()+
+            labs(title="Most frequent words in Blogs Corpus",
+                 x="",
+                 y="")+
+    theme(axis.text.y = element_text(angle = 40, hjust = 1),
+          plot.title = element_text(size = 15))
+```
+
+```{r}
+blogs_2_grams %>% filter(Freq > 450) %>%
+            ggplot(aes(x=Freq, y = reorder(blogs_2_grams, Freq)))+
+            geom_bar(stat = "identity", color="black", fill="#ff99ff")+
+            theme_bw()+
+            labs(title="Most frequent 2-grams in News Corpus",
+                 x="",
+                 y="")+
+            theme(plot.title = element_text(size = 15))
+```
+
+
+```{r}
+twitter_1_grams$word[1:5]
+findAssocs(twitter.dtm, "im", 0.005)
+findAssocs(twitter.dtm, "just", 0.05)
+findAssocs(twitter.dtm, "get", 0.08)
+findAssocs(twitter.dtm, "thank", 0.08)
+findAssocs(twitter.dtm, "go", 0.005)
+```
+
+```{r}
+inspect(twitter.dtm)
+```
+
+
+```{r}
+news_1_grams$word[1:5]
+findAssocs(news.dtm, "said", 0.08)
+findAssocs(news.dtm, "will", 0.1)
+findAssocs(news.dtm, "year", 0.1)
+findAssocs(news.dtm, "one", 0.1)
+findAssocs(news.dtm, "say", 0.1)
+```
+
+```{r}
+inspect(news.dtm)
+```
+
+
+```{r}
+blogs_1_grams$word[1:5]
+findAssocs(blogs.dtm, "one", 0.1)
+findAssocs(blogs.dtm, "will", 0.1)
+findAssocs(blogs.dtm, "like",0.1)
+findAssocs(blogs.dtm, "can", 0.1)
+findAssocs(blogs.dtm, "time", 0.1)
+```
+
+```{r}
+inspect(blogs.dtm)
+```
+
+
+```{r}
+twitter.mfw <- DocumentTermMatrix(twitter_corpus,
+                            list(dictionary=twitter_1_grams$word[1:10]))
+twitter.mfw <- as.matrix(twitter.mfw)
+twitter.mfw <- as.data.frame(twitter.mfw)
+summary(twitter.mfw)
+```
+
+```{r}
+news.mfw <- DocumentTermMatrix(news_corpus,
+                               list(dictionary=news_1_grams$word[1:10]))
+news.mfw <- as.matrix(news.mfw)
+news.mfw <- as.data.frame(news.mfw)
+summary(news.mfw)
+```
+
+```{r}
+blogs.mfw <- DocumentTermMatrix(blogs_corpus,
+                                list(dictionary=blogs_1_grams$word[1:10]))
+blogs.mfw <- as.matrix(blogs.mfw)
+blogs.mfw <- as.data.frame(blogs.mfw)
+summary(blogs.mfw)
+```
+
+```{r}
+(twitter.q <- quantile(twitter_1_grams$freq, probs = c(0.5,0.9,0.95)))
+(news.q <- quantile(news_1_grams$freq, probs = c(0.5,0.9,0.95)))
+(blogs.q <- quantile(blogs_1_grams$freq, probs = c(0.5,0.9,0.95)))
+```
+
+```{r}
+for(i in 1:3){
+    w <- sum(twitter_1_grams$freq<=twitter.q[i])
+    p <- paste(names(twitter.q)[i],"of the twitter dictionary")
+    p <- paste(p, "is covered by ", as.character(w), "words." )
+    print(p)
+}
+print(paste("There are", as.character(dim(twitter_1_grams)[1]), 
+            "unique words in twitter corpus."))
+```
+
+```{r}
+for(i in 1:3){
+    w <- sum(news_1_grams$freq<=news.q[i])
+    p <- paste(names(news.q[i]), "of the news dictionary")
+    p <- paste(p, "is covered by", as.character(w), "words.")
+    print(p)
+}
+print(paste("There are", as.character(dim(news_1_grams)[1]),
+      "unique words in news corpus."))
+```
+
+```{r}
+for(i in 1:3){
+    w <- sum(blogs_1_grams$freq<=news.q[i])
+    p <- paste(names(blogs.q[i]), "of the blogs dictionary")
+    p <- paste(p, "is covered by", as.character(w), "words.")
+    print(p)
+}
+print(paste("There are", as.character(dim(blogs_1_grams)[1]),
+      "unique words in news corpus."))
+```
+
+## Model 
