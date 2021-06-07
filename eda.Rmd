@@ -10,10 +10,17 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align =
                       fig.height = 4, fig.width = 5)
 ```
 
-## Introduction 
+# Introduction 
+This is the milestone report for the second week of the Data Science Specialization's Capstone, given at Coursera by John Hopkins University. The intention for this report is to perform an exploratory data analysis on three text documents: collections of tweets, news and reports, all the three in English, provided by Swiftkey company and Coursera. In the first part, three text documents are loaded to the environment, clean and pre-processed. The whole processed of cleaning is explained on the twitter corpus, but the other documents will be cleaned and pre-processed in the same way and with the same nomenclature.
 
+In the next part, I make an exploratory data analysis on the resulting data. The features that will be studied are: most frequent words, most frequent $n$-grams, with $n=2,3$, association of the top ten most frequent words with all the corpus and how many words are needed in order to cover $50\%$, $90\%$ and $95\%$ of the whole corpus.
+
+In the final part, I'll explain the work plan for a predictive text model, the goals of the model and the challenges.
 
 ## Libraries for the analysis
+
+The following libraries will be used to clean and pre-process the data and to perform the analysis.
+
 ```{r, message=FALSE, warning=FALSE}
 library(dplyr)
 library(ggplot2)
@@ -29,6 +36,8 @@ library(RColorBrewer)
 
 
 ## Loading data and preparing corpus
+
+Since the twitter corpus is quite large, I will take a random sample, in order to improve time and memory cost on the analysis. 
 ```{r, warning=FALSE}
 file.txt <- "./final/en_Us/en_US.twitter.txt"
 con <- file(file.txt, "r")
@@ -36,7 +45,7 @@ twitter_corpus <- readLines(con)
 close(con)
 length(twitter_corpus)
 set.seed(22)
-selection <- sample(1:length(twitter_corpus), 10000)
+selection <- sample(1:length(twitter_corpus), 100000)
 twitter_corpus <- twitter_corpus[selection]
 twitter_corpus <- Corpus(VectorSource(twitter_corpus),
                          readerControl=list(readPlain, language="en_US", load=TRUE))
@@ -45,14 +54,18 @@ inspect(twitter_corpus[1:4])
 
 ## Data cleaning
 
-- transform to lowercase  
-- remove punctuation and symbols  
-- stem the corpus  
-- filter profanities  
-- remove stopwords 
-- remove extra white spaces  
-- create term document matrix and 2-gram and 3-gram tables 
+The following is my plan to clean and pre-process the data:
 
+- transform text to lowercase  
+- remove punctuation, numbers and symbols  
+- stem the corpus  
+- filter the profanities  
+- remove stop words 
+- remove extra white spaces  
+- create $n$-grams of the text, for $n=1,2,3$  
+- Create a Document Term Matrix.
+
+First, I transform to lowercase the corpus, remove the punctuation, remove the numbers and stem the corpus.
 ```{r}
 twitter_corpus <- tm_map(twitter_corpus, content_transformer(tolower))
 twitter_corpus <- tm_map(twitter_corpus, removePunctuation)
@@ -60,6 +73,7 @@ twitter_corpus <- tm_map(twitter_corpus, stemDocument)
 twitter_corpus <- tm_map(twitter_corpus, removeNumbers)
 ```
 
+The next part is to filter the profanities. In order to do this, I use a profanity dictionary from the lexicon package, that contains `r length(lexicon::profanity_banned)` stop words and I check the profanity rate on the Twitter corpus with the profanity function of the sentimentR package.
 ```{r}
 set.seed(123)
 s <- sample(1:100000, 10000)
@@ -76,7 +90,7 @@ twitter.profanity %>% ggplot(aes(x=profanity))+
              plot.title = element_text(size = 15))
 ```
 
-
+It seems that the profanity rate is very low through the twitter corpus. To filter this profanities, I used this list from the lexicon package and use the removeWords function from tm.
 ```{r}
 twitter_corpus <- tm_map(twitter_corpus, removeWords, profanity_list)
 twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus[s], as.character), 
@@ -84,10 +98,12 @@ twitter.profanity <- sentimentr::profanity(sapply(twitter_corpus[s], as.characte
 mean(twitter.profanity$profanity)
 ```
 
+As we can see, the mean of the profanity rate is practically zero. The next step is to remove stop words from English language, it means, very common words that will affect the anaylis.
 ```{r}
 twitter_corpus <- tm_map(twitter_corpus, removeWords, stopwords("english"))
 ```
 
+Now, I remove some bad characters that appears because of the encoding of the .txt file. Finally, I strip the white spaces.
 ```{r}
 subs <- function(x){
             x <- gsub("â", "", x)
@@ -101,6 +117,7 @@ twitter_corpus <- tm_map(twitter_corpus, stripWhitespace)
 ```
 
 
+Now, I create a table of the $1$-grams, that is, a table with the frequency of each word appearing on the Twitter corpus.
 ```{r}
 twitter_1_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), n=1)
 twitter_1_grams <- unlist(twitter_1_grams)
@@ -109,6 +126,7 @@ twitter_1_grams <- twitter_1_grams %>% arrange(desc(Freq))
 head(twitter_1_grams)
 ```
 
+Also, I create a table of the $2$ and $3$-grams of the corpus.
 
 ```{r}
 twitter_2_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), n=2)
@@ -116,9 +134,7 @@ twitter_2_grams <- unlist(twitter_2_grams)
 twitter_2_grams <- data.frame(table(twitter_2_grams))
 twitter_2_grams <- twitter_2_grams %>% arrange(desc(Freq))
 head(twitter_2_grams)
-```
 
-```{r}
 twitter_3_grams <- tokenize_ngrams(sapply(twitter_corpus, as.character), n=3)
 twitter_3_grams <- unlist(twitter_3_grams)
 twitter_3_grams <- data.frame(table(twitter_3_grams))
@@ -126,26 +142,25 @@ twitter_3_grams <- twitter_3_grams %>% arrange(desc(Freq))
 head(twitter_3_grams)
 ```
 
-
+And finally, I create a document term matrix.
 ```{r}
 twitter.dtm <- DocumentTermMatrix(twitter_corpus)
 ```
 
 
-```{r}
+For the news and blogs files, the exact same process is done, with the same nomenclature. A random sample of 10000 news documents and 100000 blogs documents are taken, for the same reason as Twitter documents.
+```{r, echo=FALSE}
 file.txt <- "./final/en_Us/en_US.news.txt"
 con <- file(file.txt, "r")
 news_corpus <- readLines(con)
 close(con)
-length(news_corpus)
+
 set.seed(23)
 selection <- sample(1:length(news_corpus), 10000)
 news_corpus <- news_corpus[selection]
 news_corpus <- Corpus(VectorSource(news_corpus),
                       readerControl = list(readPlain, language="en_US", load=TRUE))
-```
 
-```{r}
 news_corpus <- tm_map(news_corpus, content_transformer(tolower))
 news_corpus <- tm_map(news_corpus, removePunctuation)
 news_corpus <- tm_map(news_corpus, stemDocument)
@@ -160,7 +175,6 @@ news_1_grams <- tokenize_ngrams(sapply(news_corpus, as.character), n=1)
 news_1_grams <- unlist(news_1_grams)
 news_1_grams <- data.frame(table(news_1_grams))
 news_1_grams <- news_1_grams %>% arrange(desc(Freq))
-head(news_1_grams)
 
 news_2_grams <- tokenize_ngrams(sapply(news_corpus, as.character), n=2)
 news_2_grams <- unlist(news_2_grams)
@@ -175,21 +189,17 @@ news_3_grams <- news_3_grams %>% arrange(desc(Freq))
 news.dtm <- DocumentTermMatrix(news_corpus)
 ```
 
-```{r}
+```{r, echo=F}
 file.txt <- "./final/en_Us/en_US.blogs.txt"
 con <- file(file.txt, "r")
 blogs_corpus <- readLines(con)
 close(con)
-length(blogs_corpus)
-set.seed(1515)
 set.seed(24)
 selection <- sample(1:length(blogs_corpus), 100000)
 blogs_corpus <- blogs_corpus[selection]
 blogs_corpus <- Corpus(VectorSource(blogs_corpus), 
                        readerControl = list(readPlain, language="en_US", load=TRUE))
-```
 
-```{r}
 blogs_corpus <- tm_map(blogs_corpus, content_transformer(tolower))
 blogs_corpus <- tm_map(blogs_corpus, removePunctuation)
 blogs_corpus <- tm_map(blogs_corpus, stemDocument)
@@ -218,14 +228,18 @@ blogs_3_grams <- blogs_3_grams %>% arrange(desc(Freq))
 blogs.dtm <- DocumentTermMatrix(blogs_corpus)
 ```
 
-## EDA
+# EDA
 
-- Wordclouds of each corpus  
-- Plot of most frequent words,frequent 2-grams and 3-grams  
-- Association of most frequent words  
-- Distribution of most frequent words 
+Now, I start with the exploratory data analysis. My plan is:
 
-```{r}
+- Create wordclouds of the most frequent words in each corpus  
+- Create plots of the most frequent words, $2$-grams and $3$-grams  
+- Compute the association of most frequent words  
+- Find distribution of most frequent words 
+- Find how many words are needed to cover the dictionaries  
+
+The following plot is a wordcloud of the most frequent words in Twitter corpus.
+```{r, echo=F}
 colnames(twitter_1_grams) <- c("word", "freq")
 twitter_1_grams$word <- as.character(twitter_1_grams$word)
 layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
@@ -239,53 +253,49 @@ wordcloud(words = twitter_1_grams$word, freq = twitter_1_grams$freq,
           scale = c(2.5,0.7))
 ```
 
-```{r}
-twitter_1_grams %>% filter(freq>300) %>%
+Now, I plot what are the fifteen most frequent words, $2$-grams and $3$-grams on Twitter Corpus
+```{r, echo=F}
+twitter_1_grams[1:16,] %>% filter(freq>3000) %>%
             arrange(desc(freq)) %>%
             ggplot(aes(x=freq, y=reorder(word, freq))) +
-            geom_bar(stat = "identity", color="black", fill="#0066ff")+
+            geom_bar(stat = "identity", color="black", fill="#66ccff")+
             theme_bw()+
             labs(title="Most frequent words in Twitter corpus",
                  x="",
                  y="")+
-    theme(axis.text.y = element_text(angle = 40, hjust = 1),
-          legend.text = element_text(size = 14),
+    theme(axis.text.y = element_text(hjust = 1),
           axis.title = element_text(size = 14),
-          plot.title = element_text(size = 15),
-          plot.subtitle = element_text(size = 16))
+          plot.title = element_text(size = 15))
 ```
 
-```{r}
-twitter_2_grams %>% filter(Freq > 25) %>%
+```{r, echo=F}
+twitter_2_grams[1:15,] %>% filter(Freq > 250) %>%
             ggplot(aes(x=Freq, y = reorder(twitter_2_grams, Freq)))+
             geom_bar(stat = "identity", color="black", fill="#66ccff")+
             theme_bw()+
             labs(title="Most frequent 2-grams in Twitter Corpus",
                  x="",
                  y="")+
-            theme(axis.text.y = element_text(angle = 40, hjust = 1),
-            legend.text = element_text(size = 14),
+            theme(axis.text.y = element_text(hjust = 1),
             axis.title = element_text(size = 14),
-            plot.title = element_text(size = 15),
-            plot.subtitle = element_text(size = 16))
+            plot.title = element_text(size = 15))
 ```
 
-```{r}
-twitter_3_grams %>% filter(Freq > 3) %>%
+```{r, echo=F}
+twitter_3_grams[1:15,] %>% filter(Freq > 25) %>%
             ggplot(aes(x=Freq, y = reorder(twitter_3_grams, Freq)))+
             geom_bar(stat = "identity", color="black", fill="#66ccff")+
             theme_bw()+
             labs(title="Most frequent 2-grams in Twitter Corpus",
                  x="",
                  y="")+
-            theme(axis.text.y = element_text(angle = 40, hjust = 1),
-            legend.text = element_text(size = 14),
+            theme(axis.text.y = element_text(hjust = 1),
             axis.title = element_text(size = 14),
-            plot.title = element_text(size = 15),
-            plot.subtitle = element_text(size = 16))
+            plot.title = element_text(size = 15))
 ```
 
-```{r}
+Now, the wordcloud and plots of the most frequent words, $2$-grams and $3$-grams in news.
+```{r, echo=F}
 colnames(news_1_grams) <- c("word", "freq")
 news_1_grams$word <- as.character(news_1_grams$word)
 layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
@@ -299,51 +309,47 @@ wordcloud(words = news_1_grams$word, freq = news_1_grams$freq,
           scale = c(2.5,0.7))
 ```
 
-```{r}
-news_1_grams %>% filter(freq>400) %>%
+```{r, echo=F}
+news_1_grams[1:15,] %>% filter(freq>500) %>%
             arrange(desc(freq)) %>%
             ggplot(aes(x=freq, y=reorder(word, freq))) +
-            geom_bar(stat = "identity", color="black", fill="#ff3399")+
+            geom_bar(stat = "identity", color="black", fill="#ff99ff")+
             theme_bw()+
             labs(title="Most frequent words in News Corpus",
                  x="",
                  y="")+
-    theme(axis.text.y = element_text(angle = 40, hjust = 1),
-          legend.text = element_text(size = 14),
+    theme(axis.text.y = element_text(hjust = 1),
           axis.title = element_text(size = 14),
-          plot.title = element_text(size = 15),
-          plot.subtitle = element_text(size = 16))
+          plot.title = element_text(size = 15))
 ```
 
-```{r}
-news_2_grams %>% filter(Freq > 30) %>%
+```{r, echo=F}
+news_2_grams[1:15,] %>% filter(Freq > 35) %>%
             ggplot(aes(x=Freq, y = reorder(news_2_grams, Freq)))+
             geom_bar(stat = "identity", color="black", fill="#ff99ff")+
             theme_bw()+
             labs(title="Most frequent 2-grams in News Corpus",
                  x="",
                  y="")+
-    theme(axis.text.y = element_text(angle = 40, hjust = 1),
-          legend.text = element_text(size = 14),
+    theme(axis.text.y = element_text(hjust = 1),
           axis.title = element_text(size = 14),
-          plot.title = element_text(size = 15),
-          plot.subtitle = element_text(size = 16))
+          plot.title = element_text(size = 15))
 ```
 
-```{r}
-news_3_grams %>% filter(Freq > 5) %>%
+```{r, echo=F}
+news_3_grams[1:15,] %>% filter(Freq > 2) %>%
             ggplot(aes(x=Freq, y = reorder(news_3_grams, Freq)))+
             geom_bar(stat = "identity", color="black", fill="#ff99ff")+
             theme_bw()+
             labs(title="Most frequent 2-grams in News Corpus",
                  x="",
                  y="")+
-    theme(axis.text.y = element_text(angle = 30, hjust = 1),
+    theme(axis.text.y = element_text(hjust = 1),
           plot.title = element_text(size = 15))
 ```
 
-
-```{r}
+And the wordcloud and plots of the most frequent words, $2$-grams and $3$-grams in blogs.
+```{r, echo=F}
 colnames(blogs_1_grams) <- c("word", "freq")
 blogs_1_grams$word <- as.character(blogs_1_grams$word)
 layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
@@ -356,31 +362,43 @@ wordcloud(words = blogs_1_grams$word, freq = blogs_1_grams$freq, main="Title", m
           scale = c(2.5,0.7))
 ```
 
-```{r}
-blogs_1_grams %>% filter(freq>6000) %>%
+```{r, echo=F}
+blogs_1_grams[1:15,] %>% filter(freq>7000) %>%
             arrange(desc(freq)) %>%
             ggplot(aes(x=freq, y=reorder(word, freq))) +
-            geom_bar(stat = "identity", color="black", fill="#cc9900")+
+            geom_bar(stat = "identity", color="black", fill="#ffcc66")+
             theme_bw()+
             labs(title="Most frequent words in Blogs Corpus",
                  x="",
                  y="")+
-    theme(axis.text.y = element_text(angle = 40, hjust = 1),
+    theme(axis.text.y = element_text(hjust = 1),
           plot.title = element_text(size = 15))
 ```
 
-```{r}
-blogs_2_grams %>% filter(Freq > 450) %>%
+```{r, echo=F}
+blogs_2_grams[1:15,] %>% filter(Freq > 450) %>%
             ggplot(aes(x=Freq, y = reorder(blogs_2_grams, Freq)))+
-            geom_bar(stat = "identity", color="black", fill="#ff99ff")+
+            geom_bar(stat = "identity", color="black", fill="#ffcc66")+
             theme_bw()+
-            labs(title="Most frequent 2-grams in News Corpus",
+            labs(title="Most frequent 2-grams in Blogs Corpus",
                  x="",
                  y="")+
             theme(plot.title = element_text(size = 15))
 ```
 
+```{r, echo=F}
+blogs_3_grams[1:15,] %>% filter(Freq > 50) %>%
+            ggplot(aes(x=Freq, y = reorder(blogs_3_grams, Freq)))+
+            geom_bar(stat = "identity", color="black", fill="#ffcc66")+
+            theme_bw()+
+            labs(title="Most frequent 2-grams in Blogs Corpus",
+                 x="",
+                 y="")+
+            theme(plot.title = element_text(size = 15))
+```
+As expected, well elaborated sentences can be founded more frequently in the news and blogs corpora. Some aspects that should be considered is to remove certain "words", such as "im", "t" (which would be preceded by and apostrophe) and some other similar words and sentences.
 
+Now, I find the association of the five most frequent words, with other words, that is, just the correlation in the document term matrix, with a minimun association fixed individually for each word.
 ```{r}
 twitter_1_grams$word[1:5]
 findAssocs(twitter.dtm, "im", 0.005)
@@ -389,11 +407,7 @@ findAssocs(twitter.dtm, "get", 0.08)
 findAssocs(twitter.dtm, "thank", 0.08)
 findAssocs(twitter.dtm, "go", 0.005)
 ```
-
-```{r}
-inspect(twitter.dtm)
-```
-
+It should be notice that, even with so low association bounds, there are no words associated to "im" and "go", since this words are very common.
 
 ```{r}
 news_1_grams$word[1:5]
@@ -405,11 +419,6 @@ findAssocs(news.dtm, "say", 0.1)
 ```
 
 ```{r}
-inspect(news.dtm)
-```
-
-
-```{r}
 blogs_1_grams$word[1:5]
 findAssocs(blogs.dtm, "one", 0.1)
 findAssocs(blogs.dtm, "will", 0.1)
@@ -418,11 +427,9 @@ findAssocs(blogs.dtm, "can", 0.1)
 findAssocs(blogs.dtm, "time", 0.1)
 ```
 
-```{r}
-inspect(blogs.dtm)
-```
+As we can see, the most frequent words have very low associations with other words. This could explain why the most frequent $2$ and $3$-grams have relatively low frequencies.
 
-
+Now, I find the central statistics for the ten most frequent words in each corpus.
 ```{r}
 twitter.mfw <- DocumentTermMatrix(twitter_corpus,
                             list(dictionary=twitter_1_grams$word[1:10]))
@@ -447,6 +454,9 @@ blogs.mfw <- as.data.frame(blogs.mfw)
 summary(blogs.mfw)
 ```
 
+As we can see, frequencies are relatively low in each corpus.
+
+Finally, I check how many words are needed to cover the dictionaries.
 ```{r}
 (twitter.q <- quantile(twitter_1_grams$freq, probs = c(0.5,0.9,0.95)))
 (news.q <- quantile(news_1_grams$freq, probs = c(0.5,0.9,0.95)))
@@ -486,4 +496,12 @@ print(paste("There are", as.character(dim(blogs_1_grams)[1]),
       "unique words in news corpus."))
 ```
 
-## Model 
+# Conclusions.
+
+It seems that, in order to fine well elaborated sentences that could be useful to train a text prediction model, it is better to consider news and blogs. But It should be noticed that it is more likely to find "natural language" on twitter corpus, that means, the way people usually use to communicate in a casual way may be found on twitter, although may be complicated to train a model with this data.
+
+# Model 
+
+For the text prediction model, I plan to use sbo library, which contains functions to pre-process, train, predict and evaluate text and it is based on back-off models. My goal is to train the model using different parameters and pre-proccesings to train a highly accurate text prediction models.
+
+Some of the challenges with this approach have to do with time and memory efficiency, although sbo package has some functions that seem to cope with these challenges. Another challenge has to do with splitting the data to evaluate the model.
