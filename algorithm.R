@@ -24,23 +24,34 @@ substituions <- function(x){
 my_preprocess <- function(corpus){
             # Receives a character vector and apply a pre-proccess to it and returns 
             # a character vecctor 
+            corpus <- gsub("â", " ", corpus)
+            corpus <- gsub("€", " ", corpus)
+            corpus <- gsub("™", " ", corpus)
+            corpus <- gsub('“', ' ' , corpus, fixed = TRUE)
+            corpus <- gsub('“', ' ' , corpus, fixed = TRUE)
+            corpus <- gsub("œ", ' ' , corpus, fixed = TRUE)
+            corpus <- gsub("ðÿ", ' ' , corpus, fixed = TRUE)
+            orpus <- gsub("™", ' ' , corpus, fixed = TRUE)
             corpus <- Corpus(VectorSource(corpus), 
                              readerControl = list(readPlain, language="en_US", load=TRUE))
             corpus <- tm_map(corpus, content_transformer(tolower))
-            corpus <- tm_map(corpus, content_transformer(substituions))
             corpus <- tm_map(corpus, removePunctuation)
             corpus <- tm_map(corpus, removeNumbers)
             profanity_list <- unique(lexicon::profanity_banned)
             corpus <- tm_map(corpus, removeWords, profanity_list)
             my_stop_words <- c("t", "s")
             corpus <- tm_map(corpus, removeWords, my_stop_words)
+            corpus <- tm_map(corpus, removeWords, stopwords("english"))
             corpus <- tm_map(corpus, stripWhitespace)
             corpus <- sapply(corpus, as.character)
+            corpus <- trimws(corpus, which = c("both", "left", "right"), 
+                   whitespace = "[ \t\r\n]")
             return(corpus)
 }
 
 dict <- function(corpus, min_freq=3){
             # Creates a dictionary and keeps the percentage o covering parameter
+            corpus <- suppressWarnings(my_preprocess(corpus))
             dictionnary <- tokenize_ngrams(corpus, n=1)
             dictionnary <- unlist(dictionnary)
             dictionnary <- data.frame(table(dictionnary))
@@ -69,11 +80,11 @@ two_gram_probs <- function(corpus, dict){
             return(two_gram)
 }
 
-predict_two_gram <- function(s, dict, two_gram_probs){
+predict_two_gram <- function(s, dict, model){
             s <- suppressWarnings(my_preprocess(s))
             w_n <- word(s, -1)
-            if(w_n%in% probs$first_word){
-                        w_n1 <- probs %>% filter(first_word==w_n) %>%
+            if(w_n%in% model$first_word){
+                        w_n1 <- model %>% filter(first_word==w_n) %>%
                                     arrange(desc(prob)) %>%
                                     select(second_word)
                         w_n1 <- w_n1$second_word[1:3]
@@ -86,15 +97,29 @@ predict_two_gram <- function(s, dict, two_gram_probs){
 }
 
 
-
-
-# Predict
-## Decompose the sentence into single words and construct the (n-1)-gram model
-## Search through out the dictionary the n-grams that start with the (n-1)-gram from previous step
-## Return top m n-grams with the highest probabilities
-## Return a m-length vector with the last word of each of the m-grams of the previous step
-
-## Smoothing
-
-# Evaluation 
-## Use prediction function from previous sections to test the model
+evaluate_two_gram <- function(s, dictionary, model){
+            testing_sentences <- unlist(tokenize_sentences(s, 
+                                                   lowercase = TRUE, 
+                                                   strip_punct = TRUE))
+            testing_sentences <- my_preprocess(testing_sentences)
+            evaluation <- data.frame(testing_sentences)
+            evaluation$first_sentence <- word(testing_sentences, 1, -2)
+            evaluation$result <- word(testing_sentences, -1)
+            predictions <- data.frame(pred1 = predict_txt(evaluation$first_sentence[1])[1],
+                                      pred2 = predict_txt(evaluation$first_sentence[1])[2],
+                                      pred3 = predict_txt(evaluation$first_sentence[1])[3])
+            for(i in 2:length(testing_sentences)){
+                        predictions <- rbind(predictions, 
+                                             predict_txt(evaluation$first_sentence[i]))
+            }
+            evaluation <- cbind(evaluation, predictions)
+            evaluation$pred2[is.na(evaluation$pred2)] <- "the"
+            evaluation$pred3[is.na(evaluation$pred3)] <- "in"
+            
+            evaluation$correct <- rep(FALSE, dim(evaluation)[1])
+            for(i in 1:dim(evaluation)[1]){
+                        evaluation$correct[i] <- evaluation$result[i] %in% evaluation[i,4:6]
+                        
+            }
+            return(evaluation)
+}

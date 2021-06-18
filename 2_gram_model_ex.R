@@ -85,8 +85,8 @@ t1 <- Sys.time()
 # Apply the predict_text_function and store the result into a new data_frame
 # Evaluate if the last word of each 3-gram is in the three predicted words and annotate the position of the
 # correct result if the case
-training <- training[1:10000]
-testing_sentences <- unlist(tokenize_sentences(training, 
+testing <- testing[1:10000]
+testing_sentences <- unlist(tokenize_sentences(testing, 
                                                 lowercase = TRUE, 
                                                 strip_punct = TRUE))
 testing_sentences <- my_preprocess(testing_sentences)
