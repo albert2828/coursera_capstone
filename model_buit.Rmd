@@ -1,0 +1,289 @@
+---
+title: "Model Building"
+author: "Alberto Macías"
+date: "6/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(dplyr)
+
+library(stringr)
+library(tidytext)
+library(tm) # Text mining
+library(tokenizers) # Tokenize the data
+library(sbo)
+library(stringdist)
+```
+
+```{r}
+file.txt <- "./final/en_Us/en_US.twitter.txt"
+con <- file(file.txt, "r")
+twitter_corpus <- readLines(con)
+close(con)
+set.seed(100)
+selection <- sample(1:length(twitter_corpus), 200000)
+twitter_corpus <- twitter_corpus[selection]
+
+file.txt <- "./final/en_Us/en_US.blogs.txt"
+con <- file(file.txt, "r")
+blogs_corpus <- readLines(con)
+close(con)
+set.seed(50)
+selection <- sample(1:length(blogs_corpus), 400000)
+blogs_corpus <- blogs_corpus[selection]
+
+file.txt <- "./final/en_Us/en_US.news.txt"
+con <- file(file.txt, "r")
+news_corpus <- readLines(con)
+close(con)
+set.seed(22)
+selection <- sample(1:length(news_corpus), 500000)
+news_corpus <- news_corpus[selection]
+```
+
+```{r}
+text <- cbind(twitter_corpus, blogs_corpus, news_corpus)
+n <- length(text)
+set.seed(92)
+permutation <- sample(1:n, n, replace = FALSE)
+text <- text[permutation]
+text[1:5]
+```
+
+```{r}
+m <- n*0.85
+set.seed(31)
+inTrain <- sample(1:n, m)
+training <- text[inTrain]
+testing <- text[-inTrain]
+```
+
+```{r}
+subs <- function(x){
+            x <- gsub("â", " ", x)
+            x <- gsub("€", " ", x)
+            x <- gsub("™", " ", x)
+            x <- gsub('“', ' ' , x, fixed = TRUE)
+            x <- gsub('“', ' ' , x, fixed = TRUE)
+            x <- gsub("œ", ' ' , x, fixed = TRUE)
+            x <- gsub("ðÿ", ' ' , x, fixed = TRUE)
+            return(x)
+}
+preprocess_1 <- function(corpus){
+            corpus <- Corpus(VectorSource(corpus), 
+                        readerControl = list(readPlain, language="en_US", load=TRUE))
+            corpus <- tm_map(corpus, content_transformer(tolower))
+            corpus <- tm_map(corpus, content_transformer(subs))
+            corpus <- tm_map(corpus, removePunctuation)
+            profanity_list <- unique(lexicon::profanity_banned)
+            corpus <- tm_map(corpus, removeWords, profanity_list)
+            my_stop_words <- c("t", "s")
+            corpus <- tm_map(corpus, removeWords, my_stop_words)
+            corpus <- tm_map(corpus, stripWhitespace)
+            corpus <- sapply(corpus, as.character)
+}
+```
+
+```{r}
+preprocess_2 <- function(corpus){
+            corpus <- Corpus(VectorSource(corpus), 
+                        readerControl = list(readPlain, language="en_US", load=TRUE))
+            corpus <- tm_map(corpus, content_transformer(tolower))
+            corpus <- tm_map(corpus, content_transformer(subs))
+            corpus <- tm_map(corpus, removeWords, stopwords("english"))
+            corpus <- tm_map(corpus, removePunctuation)
+            corpus <- tm_map(corpus, removeNumbers)
+            profanity_list <- unique(lexicon::profanity_banned)
+            corpus <- tm_map(corpus, removeWords, profanity_list)
+            my_stop_words <- c("t", "s")
+            corpus <- tm_map(corpus, removeWords, my_stop_words)
+            corpus <- tm_map(corpus, stripWhitespace)
+            corpus <- sapply(corpus, as.character)
+}
+```
+
+
+```{r}
+target <- dictionary(corpus = text, target = .85, .preprocess = preprocess_2, EOS = ".?!:;")
+summary(target)
+```
+
+```{r}
+filecon <- file("dictionary.txt")
+writeLines(target, filecon)
+close(filecon)
+```
+
+
+```{r}
+text <- preprocess_2(text)
+filecon <- file("corpus.txt")
+writeLines(text, filecon)
+close(filecon)
+```
+
+
+```{r}
+t0 <- Sys.time()
+p <- sbo_predictor(object = training,
+                   N=3,
+                   dict = target, 
+                   .preprocess = preprocess_1,
+                   EOS = ".?!:;",
+                   lambda = 0.4,
+                   L = 3L,
+                   filtered = "<UNK>")
+t1 <- Sys.time()
+(trainig_time <- difftime(time1 = t1, time2 = t0))
+```
+
+```{r}
+t0 <- Sys.time()
+testing <- preprocess_1(testing)
+t1 <- Sys.time()
+(preprocessing_time <- difftime(t1, t0))
+```
+
+```{r}
+t0 <- Sys.time()
+predict(p, "I love")
+t1 <- Sys.time()
+(prediction_time <- difftime(t1,t0))
+```
+
+
+```{r, warning=F, message=F}
+t0 <- Sys.time()
+evaluation <- eval_sbo_predictor(p, test = testing)
+t1 <- Sys.time()
+difftime(t1,t0)
+
+evaluation %>% # Accuracy for in-sentence predictions
+        filter(true != "<EOS>") %>%
+        summarise(accuracy = sum(correct) / n(),
+                  uncertainty = sqrt(accuracy * (1 - accuracy) / n()))
+```
+
+```{r}
+target <- dictionary(corpus = text, target = .85, .preprocess = preprocess_2, EOS = ".?!:;")
+summary(target)
+t0 <- Sys.time()
+p2 <- sbo_predictor(object = training,
+                   N=3,
+                   dict = target, 
+                   .preprocess = preprocess_2,
+                   EOS = ".?!:;",
+                   lambda = 0.4,
+                   L = 3L,
+                   filtered = "<EOS>")
+t1 <- Sys.time()
+(trainig_time <- difftime(time1 = t1, time2 = t0))
+```
+
+```{r}
+testing <- preprocess_2(testing)
+```
+
+
+```{r, warning=F, message=F}
+evaluation <- eval_sbo_predictor(p2, test = testing)
+evaluation %>% # Accuracy for in-sentence predictions
+        filter(true != "<EOS>") %>%
+        summarise(accuracy = sum(correct) / n(),
+                  uncertainty = sqrt(accuracy * (1 - accuracy) / n()))
+```
+
+
+
+
+```{r}
+predict(p, "The guy in front of me just bought a pound of bacon, a bouquet, and a case of")
+```
+
+```{r}
+predict(p, "You're the reason why I smile everyday. Can you follow me please? It would mean the")
+```
+
+```{r}
+predict(p, "Go on a romantic date at the")
+```
+
+```{r}
+predict(p, "Well I'm pretty sure my granny has some old bagpipes in her garage I'll dust them off and be on my")
+```
+```{r}
+predict(p, "Ohhhhh #PointBreak is on tomorrow. Love that film and haven't seen it in quite some")
+```
+
+```{r}
+predict(p, "If this isn't the cutest thing you've ever seen, then you must be")
+```
+
+```{r}
+target <- dictionary(training, target = .85, .preprocess = preprocess_1, EOS = ".?!:;")
+t0 <- Sys.time()
+p3 <- sbo_predictor(object = training,
+                   N=5,
+                   dict = target, 
+                   .preprocess = preprocess_1,
+                   EOS = ".?!:;",
+                   lambda = 0.4,
+                   L = 3L,
+                   filtered = "<UNK>")
+t1 <- Sys.time()
+(trainig_time <- difftime(time1 = t1, time2 = t0))
+testing <- preprocess_1(testing)
+```
+
+```{r, warning=F, message=F}
+evaluation <- eval_sbo_predictor(p3, test = testing)
+evaluation %>% # Accuracy for in-sentence predictions
+        filter(true != "<EOS>") %>%
+        summarise(accuracy = sum(correct) / n(),
+                  uncertainty = sqrt(accuracy * (1 - accuracy) / n()))
+```
+
+```{r}
+#target <- dictionary(training, target = .85, .preprocess = preprocess_1, EOS = ".?!:;")
+t0 <- Sys.time()
+p4 <- sbo_predictor(object = training,
+                   N=3,
+                   dict = target, 
+                   .preprocess = preprocess_1,
+                   EOS = ".?!:;",
+                   lambda = 0.4,
+                   L = 3L,
+                   filtered = "<UNK>")
+t1 <- Sys.time()
+(trainig_time <- difftime(time1 = t1, time2 = t0))
+#testing <- preprocess_1(testing)
+```
+
+```{r, warning=F, message=F}
+evaluation <- eval_sbo_predictor(p4, test = testing)
+evaluation %>% # Accuracy for in-sentence predictions
+        filter(true != "<EOS>") %>%
+        summarise(accuracy = sum(correct) / n(),
+                  uncertainty = sqrt(accuracy * (1 - accuracy) / n()))
+```
+
+```{r}
+quiz_w2 <- c("The guy in front of me just bought a pound of bacon, a bouquet, and a case of",
+             "You're the reason why I smile everyday. Can you follow me please? It would mean the",
+             "Hey sunshine, can you follow me and make me the",
+             "Very early observations on the Bills game: Offense still struggling but the",
+             "Go on a romantic date at the",
+             "Well I'm pretty sure my granny has some old bagpipes in her garage I'll dust them off and be on my",
+             "Ohhhhh #PointBreak is on tomorrow. Love that film and haven't seen it in quite some",
+             "After the ice bucket challenge Louis will push his long wet hair out of his eyes with his little",
+             "Be grateful for the good times and keep the faith during the",
+             "If this isn't the cutest thing you've ever seen, then you must be")
+predict(p3, quiz_w2)
+```
+
